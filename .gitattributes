@@ -1,0 +1,59 @@
+# Root .gitattributes for Inventory Management System Monorepo
+
+# ---------------------------------------------------
+# Common Attributes for the entire repository
+# ---------------------------------------------------
+# Set default line endings for text files to LF (Linux/macOS standard)
+# This helps prevent issues when developers on different OSes contribute.
+* text=auto eol=lf
+
+# Explicitly handle common text file types for consistent line endings
+*.java text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+*.properties text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.sh text eol=lf
+
+# Handle executable scripts on Linux/macOS
+/inventory-backend/mvnw text eol=lf
+/inventory-backend/gradlew text eol=lf
+/inventory-frontend/bin/* text eol=lf # Adjust if frontend has executable scripts
+
+# Handle Windows batch files with CRLF line endings
+*.bat text eol=crlf
+
+# Treat common binary files as binary
+# This prevents Git from trying to show diffs for them, which saves processing time.
+*.jar binary
+*.war binary
+*.ear binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.log binary
+*.sqlite3 binary
+*.db binary # For local database files like H2
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg binary
+*.ico binary
+*.webp binary
+*.mp3 binary
+*.mp4 binary
+*.mov binary
+*.avi binary
+*.pdf binary
+*.dll binary
+*.exe binary
