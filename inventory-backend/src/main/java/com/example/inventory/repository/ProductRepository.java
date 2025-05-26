@@ -12,5 +12,5 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     // Add custom query methods if needed later
     List<Product> findBySupplier_SupplierId(Long supplierId); // Added for SupplierService deletion check
-    // Optional: List<Product> findByCategory_CategoryId(Long categoryId); for CategoryService deletion check
+    List<Product> findByCategory_CategoryId(Long categoryId); //for CategoryService deletion check
 }

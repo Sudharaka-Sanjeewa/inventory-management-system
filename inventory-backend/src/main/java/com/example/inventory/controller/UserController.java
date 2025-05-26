@@ -28,28 +28,25 @@ public class UserController {
         dto.setUserId(user.getUserId());
         dto.setUsername(user.getUsername());
         dto.setRole(user.getRole());
-        // Password is intentionally NOT set in the DTO for security
         return dto;
     }
 
     // Helper method to convert RegisterUserRequest to User entity
-    // The password will be hashed in the UserService
     private User convertToEntity(RegisterUserRequest dto) {
         User user = new User();
         user.setUsername(dto.getUsername());
-        user.setPassword(dto.getPassword()); // Raw password to be hashed by service
-        user.setRole(dto.getRole() != null ? dto.getRole() : "ROLE_USER"); // Set default or provided role
+        user.setPassword(dto.getPassword());
+        user.setRole(dto.getRole() != null ? dto.getRole() : "ROLE_USER");
         return user;
     }
 
     // Helper method to update User entity from UpdateUserRequest
-    // The password will be hashed in the UserService if provided
     private User convertToEntity(UpdateUserRequest dto, User existingUser) {
         if (dto.getUsername() != null) {
             existingUser.setUsername(dto.getUsername());
         }
         if (dto.getPassword() != null && !dto.getPassword().isEmpty()) {
-            existingUser.setPassword(dto.getPassword()); // Raw password to be hashed by service
+            existingUser.setPassword(dto.getPassword());
         }
         if (dto.getRole() != null) {
             existingUser.setRole(dto.getRole());
@@ -59,21 +56,17 @@ public class UserController {
 
     @PostMapping("/register")
     public ResponseEntity<UserDTO> registerUser(@Valid @RequestBody RegisterUserRequest registerUserRequest) {
-        try {
-            User userToRegister = convertToEntity(registerUserRequest);
-            User savedUser = userService.registerUser(userToRegister);
-            return new ResponseEntity<>(convertToDto(savedUser), HttpStatus.CREATED);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.CONFLICT); // Username already exists
-        }
+        // Service will throw DuplicateResourceException if username exists
+        User userToRegister = convertToEntity(registerUserRequest);
+        User savedUser = userService.registerUser(userToRegister);
+        return new ResponseEntity<>(convertToDto(savedUser), HttpStatus.CREATED);
     }
 
     @PostMapping("/login")
     public ResponseEntity<UserDTO> loginUser(@Valid @RequestBody LoginRequest loginRequest) {
-        return userService.loginUser(loginRequest.getUsername(), loginRequest.getPassword())
-                .map(this::convertToDto) // Convert entity to DTO if login successful
-                .map(userDTO -> new ResponseEntity<>(userDTO, HttpStatus.OK))
-                .orElseGet(() -> new ResponseEntity<>(HttpStatus.UNAUTHORIZED)); // User not found or password mismatch
+        // Service will throw ResourceNotFoundException or InvalidOperationException
+        User loggedInUser = userService.loginUser(loginRequest.getUsername(), loginRequest.getPassword());
+        return new ResponseEntity<>(convertToDto(loggedInUser), HttpStatus.OK);
     }
 
     @GetMapping
@@ -87,34 +80,24 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
-        return userService.getUserById(id)
-                .map(this::convertToDto) // Convert entity to DTO if found
-                .map(userDTO -> new ResponseEntity<>(userDTO, HttpStatus.OK))
-                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+        // Service will throw ResourceNotFoundException if not found
+        User user = userService.getUserById(id);
+        return new ResponseEntity<>(convertToDto(user), HttpStatus.OK);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest updateUserRequest) {
-        try {
-            User existingUser = userService.getUserById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
-
-            User updatedUserEntity = convertToEntity(updateUserRequest, existingUser);
-            User savedUser = userService.updateUser(id, updatedUserEntity);
-
-            return new ResponseEntity<>(convertToDto(savedUser), HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // User not found or username conflict
-        }
+        // Service will throw ResourceNotFoundException or DuplicateResourceException
+        User existingUser = new User(); // Dummy entity
+        User updatedUserEntity = convertToEntity(updateUserRequest, existingUser);
+        User savedUser = userService.updateUser(id, updatedUserEntity);
+        return new ResponseEntity<>(convertToDto(savedUser), HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        try {
-            userService.deleteUser(id);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // User not found
-        }
+        // Service will throw ResourceNotFoundException
+        userService.deleteUser(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }

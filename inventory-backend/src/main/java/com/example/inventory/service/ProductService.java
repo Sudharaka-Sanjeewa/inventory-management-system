@@ -7,7 +7,10 @@ import com.example.inventory.entity.Supplier;
 import com.example.inventory.repository.ProductRepository;
 import com.example.inventory.repository.CategoryRepository;
 import com.example.inventory.repository.SupplierRepository;
-import com.example.inventory.repository.InventoryRepository; // Needed for deletion check
+import com.example.inventory.repository.InventoryRepository;
+import com.example.inventory.exception.ResourceNotFoundException;
+import com.example.inventory.exception.DuplicateResourceException;
+import com.example.inventory.exception.InvalidOperationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,32 +28,37 @@ public class ProductService {
     @Autowired
     private SupplierRepository supplierRepository;
     @Autowired
-    private InventoryRepository inventoryRepository; // To check for existing inventory on product deletion
+    private InventoryRepository inventoryRepository;
 
     public List<Product> getAllProducts() {
         return productRepository.findAll();
     }
 
-    public Optional<Product> getProductById(Long id) {
-        return productRepository.findById(id);
+    public Product getProductById(Long id) { // Changed return type to Product and removed Optional
+        return productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
     }
 
     @Transactional
     public Product createProduct(Product product) {
         if (productRepository.existsBySku(product.getSku())) {
-            throw new IllegalArgumentException("Product with SKU '" + product.getSku() + "' already exists.");
+            throw new DuplicateResourceException("Product with SKU '" + product.getSku() + "' already exists.");
         }
 
-        // Validate and fetch Category
+        // Validate Category and Supplier IDs
+        if (product.getCategory() == null || product.getCategory().getCategoryId() == null) {
+            throw new InvalidOperationException("Category ID is required for product creation.");
+        }
         Category category = categoryRepository.findById(product.getCategory().getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid Category ID provided."));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + product.getCategory().getCategoryId()));
+        product.setCategory(category); // Set the managed entity
 
-        // Validate and fetch Supplier
+        if (product.getSupplier() == null || product.getSupplier().getSupplierId() == null) {
+            throw new InvalidOperationException("Supplier ID is required for product creation.");
+        }
         Supplier supplier = supplierRepository.findById(product.getSupplier().getSupplierId())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid Supplier ID provided."));
-
-        product.setCategory(category);
-        product.setSupplier(supplier);
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier not found with ID: " + product.getSupplier().getSupplierId()));
+        product.setSupplier(supplier); // Set the managed entity
 
         return productRepository.save(product);
     }
@@ -58,26 +66,33 @@ public class ProductService {
     @Transactional
     public Product updateProduct(Long id, Product updatedProduct) {
         Product existingProduct = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
 
-        // Update fields that can be changed
-        existingProduct.setName(updatedProduct.getName());
-        existingProduct.setSku(updatedProduct.getSku()); // Consider adding unique check if SKU is updated
-        existingProduct.setDescription(updatedProduct.getDescription());
-        existingProduct.setPurchasePrice(updatedProduct.getPurchasePrice());
-        existingProduct.setSellingPrice(updatedProduct.getSellingPrice());
+        // Check for duplicate SKU during update, but allow if it's the existing product's SKU
+        if (updatedProduct.getSku() != null && !updatedProduct.getSku().equals(existingProduct.getSku()) &&
+                productRepository.existsBySku(updatedProduct.getSku())) {
+            throw new DuplicateResourceException("Product with SKU '" + updatedProduct.getSku() + "' already exists.");
+        }
+
+        // Update fields if provided in updatedProduct
+        Optional.ofNullable(updatedProduct.getName()).ifPresent(existingProduct::setName);
+        Optional.ofNullable(updatedProduct.getSku()).ifPresent(existingProduct::setSku);
+        Optional.ofNullable(updatedProduct.getDescription()).ifPresent(existingProduct::setDescription);
+        Optional.ofNullable(updatedProduct.getPurchasePrice()).ifPresent(existingProduct::setPurchasePrice);
+        Optional.ofNullable(updatedProduct.getSellingPrice()).ifPresent(existingProduct::setSellingPrice);
+
 
         // Handle Category update
         if (updatedProduct.getCategory() != null && updatedProduct.getCategory().getCategoryId() != null) {
             Category category = categoryRepository.findById(updatedProduct.getCategory().getCategoryId())
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid Category ID provided."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + updatedProduct.getCategory().getCategoryId()));
             existingProduct.setCategory(category);
         }
 
         // Handle Supplier update
         if (updatedProduct.getSupplier() != null && updatedProduct.getSupplier().getSupplierId() != null) {
             Supplier supplier = supplierRepository.findById(updatedProduct.getSupplier().getSupplierId())
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid Supplier ID provided."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Supplier not found with ID: " + updatedProduct.getSupplier().getSupplierId()));
             existingProduct.setSupplier(supplier);
         }
 
@@ -86,14 +101,14 @@ public class ProductService {
 
     @Transactional
     public void deleteProduct(Long id) {
+        // First, check if the product exists
         if (!productRepository.existsById(id)) {
-            throw new IllegalArgumentException("Product not found with ID: " + id);
+            throw new ResourceNotFoundException("Product not found with ID: " + id);
         }
 
         // Check for associated Inventory before deleting
-        Optional<Inventory> inventoryOptional = inventoryRepository.findByProduct_ProductId(id);
-        if (inventoryOptional.isPresent()) {
-            throw new IllegalStateException("Cannot delete product with existing inventory record. Delete inventory first.");
+        if (inventoryRepository.findByProduct_ProductId(id).isPresent()) {
+            throw new InvalidOperationException("Cannot delete product with existing inventory record. Delete inventory first.");
         }
 
         productRepository.deleteById(id);

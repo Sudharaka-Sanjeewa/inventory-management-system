@@ -60,46 +60,32 @@ public class SupplierController {
 
     @GetMapping("/{id}")
     public ResponseEntity<SupplierDTO> getSupplierById(@PathVariable Long id) {
-        return supplierService.getSupplierById(id)
-                .map(this::convertToDto) // Convert entity to DTO if found
-                .map(supplierDTO -> new ResponseEntity<>(supplierDTO, HttpStatus.OK))
-                .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+        // Service will throw ResourceNotFoundException if not found
+        Supplier supplier = supplierService.getSupplierById(id);
+        return new ResponseEntity<>(convertToDto(supplier), HttpStatus.OK);
     }
 
     @PostMapping
     public ResponseEntity<SupplierDTO> createSupplier(@Valid @RequestBody CreateSupplierRequest createSupplierRequest) {
-        try {
-            Supplier supplierToCreate = convertToEntity(createSupplierRequest);
-            Supplier savedSupplier = supplierService.createSupplier(supplierToCreate);
-            return new ResponseEntity<>(convertToDto(savedSupplier), HttpStatus.CREATED);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.CONFLICT); // Supplier name conflict
-        }
+        // Service will throw DuplicateResourceException if name exists
+        Supplier supplierToCreate = convertToEntity(createSupplierRequest);
+        Supplier savedSupplier = supplierService.createSupplier(supplierToCreate);
+        return new ResponseEntity<>(convertToDto(savedSupplier), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<SupplierDTO> updateSupplier(@PathVariable Long id, @Valid @RequestBody UpdateSupplierRequest updateSupplierRequest) {
-        try {
-            Supplier existingSupplier = supplierService.getSupplierById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("Supplier not found with ID: " + id));
-
-            Supplier updatedSupplierEntity = convertToEntity(updateSupplierRequest, existingSupplier);
-            Supplier savedSupplier = supplierService.updateSupplier(id, updatedSupplierEntity);
-            return new ResponseEntity<>(convertToDto(savedSupplier), HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Supplier not found or name conflict
-        }
+        // Service will throw ResourceNotFoundException or DuplicateResourceException
+        Supplier existingSupplier = new Supplier(); // Dummy entity
+        Supplier updatedSupplierEntity = convertToEntity(updateSupplierRequest, existingSupplier);
+        Supplier savedSupplier = supplierService.updateSupplier(id, updatedSupplierEntity);
+        return new ResponseEntity<>(convertToDto(savedSupplier), HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteSupplier(@PathVariable Long id) {
-        try {
-            supplierService.deleteSupplier(id);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND); // Supplier not found
-        } catch (IllegalStateException e) {
-            return new ResponseEntity<>(HttpStatus.CONFLICT); // For existing products
-        }
+        // Service will throw ResourceNotFoundException or InvalidOperationException
+        supplierService.deleteSupplier(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
