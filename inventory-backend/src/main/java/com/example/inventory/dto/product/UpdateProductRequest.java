@@ -23,5 +23,5 @@ public class UpdateProductRequest {
     private Double purchasePrice;
 
     @PositiveOrZero(message = "Sale price must be zero or positive")
-    private Double salePrice;
+    private Double sellingPrice;
 }

@@ -31,5 +31,5 @@ public class CreateProductRequest {
 
     @NotNull(message = "Sale price is required")
     @PositiveOrZero(message = "Sale price must be zero or positive")
-    private Double salePrice;
+    private Double sellingPrice;
 }

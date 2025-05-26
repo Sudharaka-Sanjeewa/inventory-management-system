@@ -13,5 +13,5 @@ public class ProductDTO {
     private CategoryDTO category; // Nested DTO
     private SupplierDTO supplier; // Nested DTO
     private Double purchasePrice;
-    private Double salePrice;
+    private Double sellingPrice;
 }
